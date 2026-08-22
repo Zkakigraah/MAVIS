@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Keys
+.env
+
+# Sandbox - Workspace - Data
+models/
+memory/qdrant_local/
+workspace/
