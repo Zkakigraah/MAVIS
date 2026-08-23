@@ -1,11 +1,11 @@
 import sys
-import re
 import time
 import math
+import random
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, 
-                             QWidget, QTextEdit, QFrame, QGraphicsDropShadowEffect)
+                             QWidget, QFrame, QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRectF
-from PyQt6.QtGui import QFont, QColor, QPalette, QPainter, QPen, QBrush
+from PyQt6.QtGui import QFont, QColor, QPainter, QPen, QPainterPath
 
 # Import AI Core
 from core.stt_engine import STTEngine
@@ -27,55 +27,45 @@ class JarvisWorker(QThread):
         self.log_signal.emit("✅ Hệ thống đã sẵn sàng.")
         tts.speak("System is online. Awaiting your command, sir.")
 
-        # Biến trạng thái: Đang trong cuộc trò chuyện liên tục hay không?
         is_active = False
 
         while True:
             try:
                 if not is_active:
-                    # Giai đoạn 1: STANDBY (Ngủ đông chờ gọi tên)
                     self.status_signal.emit("STANDBY")
                     standby_audio = stt.record_audio(duration=3)
                     standby_text = stt.transcribe(standby_audio).lower()
-                    clean_text = re.sub(r'[^\w\s]', '', standby_text)
-
-                    if "wake up" in clean_text:
-                        is_active = True # Chuyển sang chế độ đàm thoại liên tục
+                    
+                    if "jarvis" in standby_text:
+                        is_active = True
                         self.status_signal.emit("WAKE")
-                        self.log_signal.emit("\n🔔 [WAKE] Hệ thống đã được đánh thức!")
+                        self.log_signal.emit("🔔 [WAKE] Hệ thống đã được đánh thức!")
                         tts.speak("Yes, sir? I am listening.")
                     else:
                         time.sleep(0.5)
                         
                 else:
-                    # Giai đoạn 2: ACTIVE (Đàm thoại liên tục)
                     self.status_signal.emit("LISTENING...")
                     command_audio = stt.record_audio(duration=6)
                     command_text = stt.transcribe(command_audio)
                     
                     if not command_text or len(command_text) < 3:
-                        # Thay vì báo không nghe rõ, hệ thống cứ lặng lẽ tiếp tục nghe
                         continue
                         
                     self.log_signal.emit(f"🗣️ You: '{command_text}'")
                     
-                    # Lệnh trở về trạng thái chờ
                     if "standby" in command_text.lower() or "stand by" in command_text.lower():
                         is_active = False
                         self.status_signal.emit("STANDBY")
-                        self.log_signal.emit("🔄 Đưa hệ thống vào chế độ chờ...")
                         tts.speak("Standing by, sir.")
                         continue
                     
-                    # Lệnh tắt hẳn hệ thống
                     if "goodbye" in command_text.lower() or "shut down" in command_text.lower():
-                        self.log_signal.emit("Tắt hệ thống...")
                         tts.speak("Goodbye sir. Shutting down systems.")
-                        time.sleep(1) # Chờ cho ngài quản gia nói xong hẳn
-                        self.status_signal.emit("SHUTDOWN") # Mới phát lệnh đóng cửa sổ
+                        time.sleep(1)
+                        self.status_signal.emit("SHUTDOWN")
                         break
                         
-                    # Lệnh bình thường
                     self.status_signal.emit("THINKING...")
                     response = jarvis.ask(command_text)
                     
@@ -87,82 +77,110 @@ class JarvisWorker(QThread):
                 self.log_signal.emit(f"❌ Lỗi: {str(e)}")
                 time.sleep(1)
 
-class AICoreWidget(QWidget):
-    """Widget tùy chỉnh vẽ lõi năng lượng có Hoạt ảnh Sóng âm"""
+class SoundWaveWidget(QWidget):
+    """Khung vẽ đồ họa Sóng Âm (Waveform & EQ Bars) mô phỏng ảnh yêu cầu"""
     def __init__(self):
         super().__init__()
-        self.setFixedSize(120, 120)
-        self.angle_outer = 0
-        self.angle_inner = 0
-        self.pulse_phase = 0.0 # Biến pha cho sóng âm dao động
+        self.setMinimumSize(350, 80)
+        self.phase = 0.0
+        
+        # Các thông số vật lý của sóng âm (Sẽ nội suy mượt mà)
+        self.current_amplitude = 5.0
+        self.target_amplitude = 5.0
+        self.current_speed = 0.1
+        self.target_speed = 0.1
+        
         self.status = "BOOTING"
-        self.status_color = QColor(0, 229, 255) # Mặc định màu Lục Lam (Cyan)
+        self.status_color = QColor(0, 229, 255) # Lục lam mặc định
+        
+        # Sinh ra độ lệch ngẫu nhiên cho các cột EQ để nhìn tự nhiên hơn
+        self.eq_offsets = [random.uniform(0, math.pi * 2) for _ in range(60)]
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.animate)
-        self.timer.start(30)
+        self.timer.start(30) # ~33fps
         
     def update_state(self, status):
         self.status = status
-        # Đổi màu lõi dựa trên trạng thái
+        # Cấu hình biên độ (độ cao sóng) và tốc độ cho từng trạng thái
         if status == "STANDBY":
-            self.status_color = QColor(0, 150, 255, 120) # Xanh dương mờ
+            self.status_color = QColor(0, 150, 255, 180) 
+            self.target_amplitude = 5.0  # Sóng gợn nhẹ
+            self.target_speed = 0.05     # Trôi rất chậm
         elif status == "LISTENING...":
-            self.status_color = QColor(0, 255, 128, 255) # Xanh lá
+            self.status_color = QColor(0, 255, 128, 255) 
+            self.target_amplitude = 15.0 # Mở rộng để hứng âm thanh
+            self.target_speed = 0.2
         elif status == "THINKING...":
-            self.status_color = QColor(255, 170, 0, 255) # Vàng cam
+            self.status_color = QColor(255, 170, 0, 255) 
+            self.target_amplitude = 8.0  # Sóng đều đặn, tập trung
+            self.target_speed = 0.3      # Suy nghĩ nhanh
         elif status == "SPEAKING...":
-            self.status_color = QColor(0, 229, 255, 255) # Lục lam
+            self.status_color = QColor(0, 229, 255, 255) 
+            self.target_amplitude = 35.0 # Đập cực mạnh, nhấp nhô lớn
+            self.target_speed = 0.4
         else:
-            self.status_color = QColor(255, 0, 85, 255)  # Đỏ (Lỗi hoặc Boot)
+            self.status_color = QColor(255, 0, 85, 255)
+            self.target_amplitude = 5.0
+            self.target_speed = 0.1
             
     def animate(self):
-        # Tạo hiệu ứng xoay ngược chiều
-        self.angle_outer = (self.angle_outer - 3) % 360
-        self.angle_inner = (self.angle_inner + 5) % 360
+        # Nội suy (Lerp) để sóng âm chuyển trạng thái mượt mà không bị giật cục
+        self.current_amplitude += (self.target_amplitude - self.current_amplitude) * 0.1
+        self.current_speed += (self.target_speed - self.current_speed) * 0.1
         
-        # Nhịp đập sóng âm (chạy liên tục)
-        self.pulse_phase += 0.2
-        self.update()
+        self.phase += self.current_speed
+        self.update() # Yêu cầu vẽ lại màn hình
         
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Tính toán cường độ đập của sóng âm (Amplitude)
-        pulse_amplitude = 5
-        if self.status == "SPEAKING...":
-            pulse_amplitude = 15 # Đập mạnh khi nói
-        elif self.status == "LISTENING...":
-            pulse_amplitude = 8  # Đập vừa khi nghe
-        elif self.status == "STANDBY":
-            pulse_amplitude = 2  # Thở nhẹ khi ngủ
+        width = self.width()
+        height = self.height()
+        mid_y = height / 2
+        
+        # 1. Vẽ các đường cong mềm mại (Sine waves) trôi dạt phía sau
+        path1 = QPainterPath()
+        path2 = QPainterPath()
+        path1.moveTo(0, mid_y)
+        path2.moveTo(0, mid_y)
+        
+        for x in range(0, width, 5):
+            # Tính toán hình sin phức hợp tạo sự tự nhiên
+            y_offset1 = math.sin((x * 0.02) + self.phase) * self.current_amplitude * 0.8
+            y_offset2 = math.cos((x * 0.015) - self.phase * 1.2) * self.current_amplitude * 0.6
             
-        # Ánh sáng tỏa ra ở giữa co giãn theo hình sin (Soundwave pulse)
-        pulse_radius = 60 + math.sin(self.pulse_phase) * pulse_amplitude
+            path1.lineTo(x, mid_y + y_offset1)
+            path2.lineTo(x, mid_y + y_offset2)
+            
+        pen_curve1 = QPen(QColor(self.status_color.red(), self.status_color.green(), self.status_color.blue(), 100), 1.5)
+        pen_curve2 = QPen(QColor(self.status_color.red(), self.status_color.green(), self.status_color.blue(), 60), 2.5)
         
-        glow_color = QColor(self.status_color.red(), self.status_color.green(), self.status_color.blue(), 40)
-        painter.setBrush(QBrush(glow_color))
-        painter.setPen(Qt.PenStyle.NoPen)
-        center_offset = (120 - pulse_radius) / 2
-        painter.drawEllipse(QRectF(center_offset, center_offset, pulse_radius, pulse_radius))
+        painter.setPen(pen_curve2)
+        painter.drawPath(path2)
+        painter.setPen(pen_curve1)
+        painter.drawPath(path1)
         
-        # Vòng ngoài (Đứt quãng)
-        pen_outer = QPen(self.status_color, 3)
-        pen_outer.setCapStyle(Qt.PenCapStyle.RoundCap)
-        painter.setPen(pen_outer)
-        painter.drawArc(10, 10, 100, 100, self.angle_outer * 16, 280 * 16)
+        # 2. Vẽ các cột EQ Bar thẳng đứng giống bức ảnh yêu cầu
+        num_bars = 60
+        bar_width = width / num_bars
+        pen_bar = QPen(self.status_color, 2)
+        pen_bar.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen_bar)
         
-        # Vòng trong (Đứt nét dạng chấm)
-        pen_inner = QPen(self.status_color, 4)
-        pen_inner.setStyle(Qt.PenStyle.DotLine)
-        painter.setPen(pen_inner)
-        painter.drawArc(22, 22, 76, 76, self.angle_inner * 16, 360 * 16)
-        
-        # Lõi cứng bên trong cùng cố định
-        pen_solid = QPen(self.status_color, 1)
-        painter.setPen(pen_solid)
-        painter.drawEllipse(35, 35, 50, 50)
+        for i in range(num_bars):
+            x = i * bar_width + (bar_width / 2)
+            
+            # Chiều cao của từng cột phụ thuộc vào vị trí X, phase hiện tại và độ lệch ngẫu nhiên tĩnh
+            # Trong lúc nói (SPEAKING), thêm một chút nhiễu (noise) ngẫu nhiên để giống phổ âm thanh thật
+            noise = random.uniform(0.5, 1.5) if self.status == "SPEAKING..." else 1.0
+            
+            bar_h = math.fabs(math.sin((i * 0.1) + self.phase + self.eq_offsets[i])) * self.current_amplitude * noise
+            
+            # Vẽ nét đứt từ tâm ra 2 phía trên dưới
+            painter.drawLine(int(x), int(mid_y - bar_h), int(x), int(mid_y + bar_h))
+
 
 class JarvisHUD(QMainWindow):
     def __init__(self):
@@ -171,106 +189,83 @@ class JarvisHUD(QMainWindow):
         
         self.worker = JarvisWorker()
         self.worker.status_signal.connect(self.update_status)
-        self.worker.log_signal.connect(self.update_log)
+        
+        # Vẫn bắt tín hiệu log nhưng chỉ in ra Terminal (Console), không hiện lên màn hình UI nữa
+        self.worker.log_signal.connect(lambda msg: print(msg)) 
+        
         self.worker.start()
 
     def initUI(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(450, 550)
+        
+        # Chuyển form thành hình chữ nhật ngang nhỏ gọn
+        self.setFixedSize(450, 160) 
         
         self.central_widget = QFrame()
         self.central_widget.setObjectName("MainFrame")
-        # Nền trong suốt 45% để không cản trở nội dung màn hình
         self.central_widget.setStyleSheet("""
             #MainFrame {
-                background-color: rgba(8, 12, 18, 0.45);
-                border: 1px solid rgba(0, 229, 255, 0.2);
-                border-radius: 12px;
+                background-color: rgba(10, 15, 25, 0.6);
+                border: 1px solid rgba(0, 229, 255, 0.3);
+                border-radius: 15px;
             }
         """)
         
         glow = QGraphicsDropShadowEffect(self)
-        glow.setBlurRadius(20)
-        glow.setColor(QColor(0, 229, 255, 60))
+        glow.setBlurRadius(25)
+        glow.setColor(QColor(0, 229, 255, 50))
         glow.setOffset(0, 0)
         self.central_widget.setGraphicsEffect(glow)
         
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(25, 25, 25, 25)
+        main_layout.setContentsMargins(20, 15, 20, 15)
 
-        # -- KHU VỰC HEADER --
+        # -- KHU VỰC TEXT HEADER --
         header_layout = QHBoxLayout()
-        self.ai_core = AICoreWidget()
-        header_layout.addWidget(self.ai_core)
         
         title_layout = QVBoxLayout()
-        title_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        title_layout.setSpacing(2)
         
         self.title_label = QLabel("J.A.R.V.I.S.")
-        self.title_label.setStyleSheet("color: #00E5FF; font-family: 'Courier New'; font-size: 26px; font-weight: bold; letter-spacing: 4px;")
-        
-        self.subtitle_label = QLabel("MK. I TACTICAL INTERFACE")
-        self.subtitle_label.setStyleSheet("color: #778899; font-family: 'Consolas'; font-size: 10px; letter-spacing: 1px;")
+        self.title_label.setStyleSheet("color: #00E5FF; font-family: 'Courier New'; font-size: 20px; font-weight: bold; letter-spacing: 5px;")
         
         self.status_label = QLabel("SYSTEM: BOOTING")
-        self.status_label.setStyleSheet("color: #FF0055; font-family: 'Consolas'; font-size: 14px; font-weight: bold; margin-top: 10px;")
+        self.status_label.setStyleSheet("color: #FF0055; font-family: 'Consolas'; font-size: 11px; font-weight: bold; letter-spacing: 1px;")
         
         title_layout.addWidget(self.title_label)
-        title_layout.addWidget(self.subtitle_label)
         title_layout.addWidget(self.status_label)
         
         header_layout.addLayout(title_layout)
         header_layout.addStretch()
         main_layout.addLayout(header_layout)
         
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet("border-top: 1px solid rgba(0, 229, 255, 0.4); margin-top: 10px; margin-bottom: 10px;")
-        main_layout.addWidget(separator)
-
-        # -- KHU VỰC LOG --
-        self.console_output = QTextEdit()
-        self.console_output.setReadOnly(True)
-        self.console_output.setStyleSheet("""
-            QTextEdit {
-                background-color: transparent;
-                color: rgba(0, 255, 204, 0.9);
-                font-family: 'Consolas', 'Courier New';
-                font-size: 13px;
-                border: none;
-                line-height: 1.5;
-            }
-        """)
-        main_layout.addWidget(self.console_output)
+        # -- KHU VỰC SÓNG ÂM (Trọng tâm) --
+        # Đã loại bỏ khung Chat Log
+        self.sound_wave = SoundWaveWidget()
+        main_layout.addWidget(self.sound_wave)
 
         self.central_widget.setLayout(main_layout)
         self.setCentralWidget(self.central_widget)
 
     def update_status(self, status):
-        """Cập nhật Status Text, Màu Core và Xử lý Lệnh Đóng"""
-        # Bắt sự kiện hệ thống báo Shut down để tắt UI
         if status == "SHUTDOWN":
             QApplication.quit()
             return
             
-        self.status_label.setText(f"SYSTEM: {status}")
-        self.ai_core.update_state(status)
+        self.status_label.setText(f"STATUS: {status}")
+        self.sound_wave.update_state(status)
         
         if status == "STANDBY":
-            self.status_label.setStyleSheet("color: #4A90E2; font-family: 'Consolas'; font-size: 14px; font-weight: bold; margin-top: 10px;")
+            self.status_label.setStyleSheet("color: #4A90E2; font-family: 'Consolas'; font-size: 11px; font-weight: bold;")
         elif status == "LISTENING...":
-            self.status_label.setStyleSheet("color: #00FF80; font-family: 'Consolas'; font-size: 14px; font-weight: bold; margin-top: 10px;")
+            self.status_label.setStyleSheet("color: #00FF80; font-family: 'Consolas'; font-size: 11px; font-weight: bold;")
         elif status == "THINKING...":
-            self.status_label.setStyleSheet("color: #FFAA00; font-family: 'Consolas'; font-size: 14px; font-weight: bold; margin-top: 10px;")
+            self.status_label.setStyleSheet("color: #FFAA00; font-family: 'Consolas'; font-size: 11px; font-weight: bold;")
         else:
-            self.status_label.setStyleSheet("color: #00E5FF; font-family: 'Consolas'; font-size: 14px; font-weight: bold; margin-top: 10px;")
+            self.status_label.setStyleSheet("color: #00E5FF; font-family: 'Consolas'; font-size: 11px; font-weight: bold;")
 
-    def update_log(self, message):
-        self.console_output.append(message)
-        scrollbar = self.console_output.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-
+    # Cho phép kéo thả ứng dụng trên màn hình
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.old_pos = event.globalPosition().toPoint()
