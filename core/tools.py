@@ -8,6 +8,8 @@ import screen_brightness_control as sbc
 from PIL import ImageGrab
 from openai import OpenAI
 from memory.qdrant_db import memory_db
+import webbrowser
+import urllib.parse
 
 # Tắt cảnh báo cú pháp (SyntaxWarning) gây rác màn hình của thư viện WMI
 import warnings
@@ -50,6 +52,28 @@ def open_application(app_name: str) -> str:
         return f"Action complete: Successfully opened {app_name}."
     except Exception as e:
         return f"Error opening application: {str(e)}"
+
+def open_website(url: str) -> str:
+    """Mở một trang web trên trình duyệt mặc định."""
+    print(f"🌐 [WEB] Đang mở trang web: {url}")
+    try:
+        if not url.startswith("http"):
+            url = "https://" + url
+        webbrowser.open(url)
+        return f"Action complete: Successfully opened {url}"
+    except Exception as e:
+        return f"Error opening website: {str(e)}"
+
+def play_youtube(query: str) -> str:
+    """Tìm kiếm và phát video trên YouTube."""
+    print(f"▶️ [YOUTUBE] Đang mở YouTube cho từ khóa: {query}")
+    try:
+        query_string = urllib.parse.urlencode({"search_query": query})
+        url = "https://www.youtube.com/results?" + query_string
+        webbrowser.open(url)
+        return f"Action complete: Opened YouTube search for '{query}'. Sir, you can now select the video."
+    except Exception as e:
+        return f"Error playing YouTube: {str(e)}"
 
 def get_system_status() -> str:
     """Lấy thông tin CPU, RAM, Pin và Âm lượng."""
@@ -181,7 +205,7 @@ def analyze_screen(prompt: str = "What is on the screen?") -> str:
         # Đã cập nhật đúng tên model Vision của Groq
         client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
         response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            model="qwen/qwen3.6-27b",
             messages=[
                 {
                     "role": "user",

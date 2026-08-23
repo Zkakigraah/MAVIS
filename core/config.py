@@ -1,13 +1,18 @@
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
 # Tải biến môi trường từ file .env
 load_dotenv()
 
-# --- CẤU HÌNH ĐƯỜNG DẪN (SANDBOX) ---
-# Lấy thư mục gốc của dự án (nơi chứa file config.py -> lùi lại 1 cấp)
-BASE_DIR = Path(__file__).resolve().parent.parent
+# --- CẤU HÌNH ĐƯỜNG DẪN (SANDBOX) TƯƠNG THÍCH EXE ---
+if getattr(sys, 'frozen', False):
+    # Nếu đang chạy file JARVIS.exe, lấy thư mục chứa file .exe làm gốc
+    BASE_DIR = Path(sys.executable).parent
+else:
+    # Nếu đang chạy code Python bình thường, lấy thư mục gốc của dự án
+    BASE_DIR = Path(__file__).resolve().parent.parent
 
 # VÙNG LÀM VIỆC CỐ ĐỊNH (Workspace Sandbox)
 # AI CHỈ ĐƯỢC PHÉP đọc/ghi file trong thư mục này.

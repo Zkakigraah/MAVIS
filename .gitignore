@@ -16,3 +16,10 @@ wheels/
 models/
 memory/qdrant_local/
 workspace/
+archived/
+app_icon.ico 
+
+# Deployment
+dist/
+JARVIS.spec
+build/
