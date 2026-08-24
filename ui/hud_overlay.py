@@ -196,52 +196,21 @@ class JarvisHUD(QMainWindow):
         self.worker.start()
 
     def initUI(self):
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
-        # Chuyển form thành hình chữ nhật ngang nhỏ gọn
-        self.setFixedSize(450, 160) 
+        # Kích thước HUD gọn gàng lại vì đã bỏ Text
+        self.setFixedSize(450, 320) 
         
-        self.central_widget = QFrame()
-        self.central_widget.setObjectName("MainFrame")
-        self.central_widget.setStyleSheet("""
-            #MainFrame {
-                background-color: rgba(10, 15, 25, 0.6);
-                border: 1px solid rgba(0, 229, 255, 0.3);
-                border-radius: 15px;
-            }
-        """)
-        
-        glow = QGraphicsDropShadowEffect(self)
-        glow.setBlurRadius(25)
-        glow.setColor(QColor(0, 229, 255, 50))
-        glow.setOffset(0, 0)
-        self.central_widget.setGraphicsEffect(glow)
+        self.central_widget = QWidget()
+        # Biến toàn bộ phông nền thành vô hình 100%
+        self.central_widget.setStyleSheet("background: transparent;")
         
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(20, 15, 20, 15)
-
-        # -- KHU VỰC TEXT HEADER --
-        header_layout = QHBoxLayout()
+        # Xóa bỏ mọi khoảng lề (Margin) để sóng âm trôi lơ lửng tự do
+        main_layout.setContentsMargins(0, 0, 0, 0)
         
-        title_layout = QVBoxLayout()
-        title_layout.setSpacing(2)
-        
-        self.title_label = QLabel("J.A.R.V.I.S.")
-        self.title_label.setStyleSheet("color: #00E5FF; font-family: 'Courier New'; font-size: 20px; font-weight: bold; letter-spacing: 5px;")
-        
-        self.status_label = QLabel("SYSTEM: BOOTING")
-        self.status_label.setStyleSheet("color: #FF0055; font-family: 'Consolas'; font-size: 11px; font-weight: bold; letter-spacing: 1px;")
-        
-        title_layout.addWidget(self.title_label)
-        title_layout.addWidget(self.status_label)
-        
-        header_layout.addLayout(title_layout)
-        header_layout.addStretch()
-        main_layout.addLayout(header_layout)
-        
-        # -- KHU VỰC SÓNG ÂM (Trọng tâm) --
-        # Đã loại bỏ khung Chat Log
+        # -- KHU VỰC SÓNG ÂM (Thành phần duy nhất còn lại) --
         self.sound_wave = SoundWaveWidget()
         main_layout.addWidget(self.sound_wave)
 
@@ -253,17 +222,8 @@ class JarvisHUD(QMainWindow):
             QApplication.quit()
             return
             
-        self.status_label.setText(f"STATUS: {status}")
+        # Không còn Text Label nữa, toàn bộ trạng thái được dồn vào màu sắc và dao động của sóng âm
         self.sound_wave.update_state(status)
-        
-        if status == "STANDBY":
-            self.status_label.setStyleSheet("color: #4A90E2; font-family: 'Consolas'; font-size: 11px; font-weight: bold;")
-        elif status == "LISTENING...":
-            self.status_label.setStyleSheet("color: #00FF80; font-family: 'Consolas'; font-size: 11px; font-weight: bold;")
-        elif status == "THINKING...":
-            self.status_label.setStyleSheet("color: #FFAA00; font-family: 'Consolas'; font-size: 11px; font-weight: bold;")
-        else:
-            self.status_label.setStyleSheet("color: #00E5FF; font-family: 'Consolas'; font-size: 11px; font-weight: bold;")
 
     # Cho phép kéo thả ứng dụng trên màn hình
     def mousePressEvent(self, event):
