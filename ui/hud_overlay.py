@@ -2,10 +2,9 @@ import sys
 import time
 import math
 import random
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, 
-                             QWidget, QFrame, QGraphicsDropShadowEffect)
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QWidget)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRectF
-from PyQt6.QtGui import QFont, QColor, QPainter, QPen, QPainterPath
+from PyQt6.QtGui import QColor, QPainter, QPen
 
 # Import AI Core
 from core.stt_engine import STTEngine
@@ -36,7 +35,7 @@ class JarvisWorker(QThread):
                     standby_audio = stt.record_audio(duration=3)
                     standby_text = stt.transcribe(standby_audio).lower()
                     
-                    if "jarvis" in standby_text:
+                    if "wake up" in standby_text:
                         is_active = True
                         self.status_signal.emit("WAKE")
                         self.log_signal.emit("🔔 [WAKE] Hệ thống đã được đánh thức!")
@@ -77,24 +76,21 @@ class JarvisWorker(QThread):
                 self.log_signal.emit(f"❌ Lỗi: {str(e)}")
                 time.sleep(1)
 
-class SoundWaveWidget(QWidget):
-    """Khung vẽ đồ họa Sóng Âm (Waveform & EQ Bars) mô phỏng ảnh yêu cầu"""
+class HologramSphereWidget(QWidget):
+    """Khung vẽ giả lập 3D (Pseudo-3D) Quả cầu Hologram lơ lửng"""
     def __init__(self):
         super().__init__()
-        self.setMinimumSize(350, 80)
+        self.setMinimumSize(250, 250)
         self.phase = 0.0
         
-        # Các thông số vật lý của sóng âm (Sẽ nội suy mượt mà)
-        self.current_amplitude = 5.0
-        self.target_amplitude = 5.0
-        self.current_speed = 0.1
-        self.target_speed = 0.1
+        # Biến trạng thái mượt mà
+        self.current_radius = 50.0
+        self.target_radius = 50.0
+        self.rotation_speed = 1.0
+        self.pulse_amplitude = 2.0
         
         self.status = "BOOTING"
-        self.status_color = QColor(0, 229, 255) # Lục lam mặc định
-        
-        # Sinh ra độ lệch ngẫu nhiên cho các cột EQ để nhìn tự nhiên hơn
-        self.eq_offsets = [random.uniform(0, math.pi * 2) for _ in range(60)]
+        self.color = QColor(0, 229, 255, 200) # Lục lam
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.animate)
@@ -102,84 +98,95 @@ class SoundWaveWidget(QWidget):
         
     def update_state(self, status):
         self.status = status
-        # Cấu hình biên độ (độ cao sóng) và tốc độ cho từng trạng thái
         if status == "STANDBY":
-            self.status_color = QColor(0, 150, 255, 180) 
-            self.target_amplitude = 5.0  # Sóng gợn nhẹ
-            self.target_speed = 0.05     # Trôi rất chậm
+            self.color = QColor(0, 150, 255, 150) # Xanh lam nhạt, ngủ yên
+            self.target_radius = 45.0
+            self.rotation_speed = 0.8
+            self.pulse_amplitude = 1.0
         elif status == "LISTENING...":
-            self.status_color = QColor(0, 255, 128, 255) 
-            self.target_amplitude = 15.0 # Mở rộng để hứng âm thanh
-            self.target_speed = 0.2
+            self.color = QColor(0, 255, 128, 220) # Xanh lá đón lệnh
+            self.target_radius = 70.0
+            self.rotation_speed = 2.5
+            self.pulse_amplitude = 4.0
         elif status == "THINKING...":
-            self.status_color = QColor(255, 170, 0, 255) 
-            self.target_amplitude = 8.0  # Sóng đều đặn, tập trung
-            self.target_speed = 0.3      # Suy nghĩ nhanh
+            self.color = QColor(255, 170, 0, 255) # Cam/Vàng rực rỡ (như ảnh)
+            self.target_radius = 60.0
+            self.rotation_speed = 8.0 # Xoay cực mạnh khi não bộ đang vắt kiệt
+            self.pulse_amplitude = 2.0
         elif status == "SPEAKING...":
-            self.status_color = QColor(0, 229, 255, 255) 
-            self.target_amplitude = 35.0 # Đập cực mạnh, nhấp nhô lớn
-            self.target_speed = 0.4
+            self.color = QColor(0, 229, 255, 255) # Lục lam
+            self.target_radius = 80.0
+            self.rotation_speed = 4.0
+            self.pulse_amplitude = 12.0 # Đập nhịp điệu lớn
         else:
-            self.status_color = QColor(255, 0, 85, 255)
-            self.target_amplitude = 5.0
-            self.target_speed = 0.1
+            self.color = QColor(255, 0, 85, 255) # Đỏ (Booting/Error)
+            self.target_radius = 40.0
+            self.rotation_speed = 1.0
+            self.pulse_amplitude = 0.0
             
     def animate(self):
-        # Nội suy (Lerp) để sóng âm chuyển trạng thái mượt mà không bị giật cục
-        self.current_amplitude += (self.target_amplitude - self.current_amplitude) * 0.1
-        self.current_speed += (self.target_speed - self.current_speed) * 0.1
-        
-        self.phase += self.current_speed
-        self.update() # Yêu cầu vẽ lại màn hình
+        # Lerp radius
+        self.current_radius += (self.target_radius - self.current_radius) * 0.1
+        self.phase += self.rotation_speed
+        if self.phase > 360000:
+            self.phase = 0
+        self.update() # Vẽ lại
         
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        width = self.width()
-        height = self.height()
-        mid_y = height / 2
+        cx = self.width() / 2
+        cy = self.height() / 2
         
-        # 1. Vẽ các đường cong mềm mại (Sine waves) trôi dạt phía sau
-        path1 = QPainterPath()
-        path2 = QPainterPath()
-        path1.moveTo(0, mid_y)
-        path2.moveTo(0, mid_y)
+        # Nhịp đập (Pulse)
+        pulse = math.sin(self.phase * 0.1) * self.pulse_amplitude
+        base_r = self.current_radius + pulse
         
-        for x in range(0, width, 5):
-            # Tính toán hình sin phức hợp tạo sự tự nhiên
-            y_offset1 = math.sin((x * 0.02) + self.phase) * self.current_amplitude * 0.8
-            y_offset2 = math.cos((x * 0.015) - self.phase * 1.2) * self.current_amplitude * 0.6
-            
-            path1.lineTo(x, mid_y + y_offset1)
-            path2.lineTo(x, mid_y + y_offset2)
-            
-        pen_curve1 = QPen(QColor(self.status_color.red(), self.status_color.green(), self.status_color.blue(), 100), 1.5)
-        pen_curve2 = QPen(QColor(self.status_color.red(), self.status_color.green(), self.status_color.blue(), 60), 2.5)
+        painter.translate(cx, cy)
         
-        painter.setPen(pen_curve2)
-        painter.drawPath(path2)
-        painter.setPen(pen_curve1)
-        painter.drawPath(path1)
+        # 1. Vẽ Lõi trung tâm phát sáng
+        painter.setBrush(QColor(self.color.red(), self.color.green(), self.color.blue(), 40))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(QRectF(-base_r*0.2, -base_r*0.2, base_r*0.4, base_r*0.4))
         
-        # 2. Vẽ các cột EQ Bar thẳng đứng giống bức ảnh yêu cầu
-        num_bars = 60
-        bar_width = width / num_bars
-        pen_bar = QPen(self.status_color, 2)
-        pen_bar.setCapStyle(Qt.PenCapStyle.RoundCap)
-        painter.setPen(pen_bar)
+        # 2. Vẽ các vòng quỹ đạo (Pseudo 3D Rings)
+        num_rings = 7
+        painter.setBrush(Qt.BrushStyle.NoBrush)
         
-        for i in range(num_bars):
-            x = i * bar_width + (bar_width / 2)
+        for i in range(num_rings):
+            painter.save()
             
-            # Chiều cao của từng cột phụ thuộc vào vị trí X, phase hiện tại và độ lệch ngẫu nhiên tĩnh
-            # Trong lúc nói (SPEAKING), thêm một chút nhiễu (noise) ngẫu nhiên để giống phổ âm thanh thật
-            noise = random.uniform(0.5, 1.5) if self.status == "SPEAKING..." else 1.0
+            # Tính toán bán kính và độ mờ của từng vòng
+            ring_r = base_r * (0.4 + i * 0.18)
+            alpha = max(20, min(255, int(255 - (i * 25))))
+            ring_color = QColor(self.color.red(), self.color.green(), self.color.blue(), alpha)
             
-            bar_h = math.fabs(math.sin((i * 0.1) + self.phase + self.eq_offsets[i])) * self.current_amplitude * noise
+            pen = QPen(ring_color, 1.5 + (i * 0.3))
             
-            # Vẽ nét đứt từ tâm ra 2 phía trên dưới
-            painter.drawLine(int(x), int(mid_y - bar_h), int(x), int(mid_y + bar_h))
+            # Tạo hiệu ứng vạch đứt gãy phong cách Cyber/Hologram
+            if i % 3 == 0:
+                pen.setStyle(Qt.PenStyle.DashLine)
+            elif i % 2 == 0:
+                pen.setStyle(Qt.PenStyle.DotLine)
+            else:
+                pen.setStyle(Qt.PenStyle.DashDotLine)
+                
+            painter.setPen(pen)
+            
+            # 2A. Xoay 2D (Quay quanh trục Z)
+            direction = 1 if i % 2 == 0 else -1
+            painter.rotate(self.phase * direction * (0.3 + i * 0.15))
+            
+            # 2B. Giả lập 3D (Bóp méo trục Y bằng hàm Sine để tạo cảm giác bị nghiêng)
+            tilt = math.sin((self.phase * 0.015) + i) * 0.7 + 0.3
+            # Tránh lỗi chia cho 0 hoặc biến mất hoàn toàn
+            tilt = max(0.05, min(1.0, math.fabs(tilt))) 
+            
+            painter.scale(1.0, tilt)
+            
+            painter.drawEllipse(QRectF(-ring_r, -ring_r, ring_r * 2, ring_r * 2))
+            painter.restore()
 
 
 class JarvisHUD(QMainWindow):
@@ -190,7 +197,6 @@ class JarvisHUD(QMainWindow):
         self.worker = JarvisWorker()
         self.worker.status_signal.connect(self.update_status)
         
-        # Vẫn bắt tín hiệu log nhưng chỉ in ra Terminal (Console), không hiện lên màn hình UI nữa
         self.worker.log_signal.connect(lambda msg: print(msg)) 
         
         self.worker.start()
@@ -199,20 +205,17 @@ class JarvisHUD(QMainWindow):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
-        # Kích thước HUD gọn gàng lại vì đã bỏ Text
-        self.setFixedSize(450, 320) 
+        # Hình vuông hoàn hảo cho Quả cầu 3D
+        self.setFixedSize(250, 250) 
         
         self.central_widget = QWidget()
-        # Biến toàn bộ phông nền thành vô hình 100%
         self.central_widget.setStyleSheet("background: transparent;")
         
         main_layout = QVBoxLayout()
-        # Xóa bỏ mọi khoảng lề (Margin) để sóng âm trôi lơ lửng tự do
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # -- KHU VỰC SÓNG ÂM (Thành phần duy nhất còn lại) --
-        self.sound_wave = SoundWaveWidget()
-        main_layout.addWidget(self.sound_wave)
+        self.hologram = HologramSphereWidget()
+        main_layout.addWidget(self.hologram)
 
         self.central_widget.setLayout(main_layout)
         self.setCentralWidget(self.central_widget)
@@ -222,10 +225,8 @@ class JarvisHUD(QMainWindow):
             QApplication.quit()
             return
             
-        # Không còn Text Label nữa, toàn bộ trạng thái được dồn vào màu sắc và dao động của sóng âm
-        self.sound_wave.update_state(status)
+        self.hologram.update_state(status)
 
-    # Cho phép kéo thả ứng dụng trên màn hình
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.old_pos = event.globalPosition().toPoint()

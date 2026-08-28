@@ -168,6 +168,55 @@ class JarvisAgent:
                         "required": ["prompt"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "take_screenshot",
+                    "description": "Takes a screenshot of the user's screen and saves it to the outputs directory. Does not analyze the image.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Reads the content of a specified text or code file.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "file_path": {
+                                "type": "string",
+                                "description": "The absolute or relative path to the file to read."
+                            }
+                        },
+                        "required": ["file_path"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "write_file",
+                    "description": "Writes or overwrites content to a specified file.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "file_path": {
+                                "type": "string",
+                                "description": "The path to the file."
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "The content to write into the file."
+                            }
+                        },
+                        "required": ["file_path", "content"]
+                    }
+                }
             }
         ]
         
@@ -179,7 +228,10 @@ class JarvisAgent:
             "search_internet": tools.search_internet,
             "get_system_status": tools.get_system_status,
             "control_system": tools.control_system,
-            "analyze_screen": tools.analyze_screen
+            "analyze_screen": tools.analyze_screen,
+            "take_screenshot": tools.take_screenshot,
+            "read_file": tools.read_file,
+            "write_file": tools.write_file
         }
 
     def ask(self, user_input: str) -> str:
@@ -196,7 +248,7 @@ class JarvisAgent:
                 messages=self.chat_history,
                 tools=self.tools_schema,
                 tool_choice="auto",
-                max_tokens=256
+                max_tokens=2048 # Đã tăng từ 256 lên 2048 để tránh đứt gãy chuỗi JSON
             )
             
             response_message = response.choices[0].message
@@ -228,7 +280,7 @@ class JarvisAgent:
                     model=self.model_name,
                     messages=self.chat_history,
                     tools=self.tools_schema, 
-                    max_tokens=256
+                    max_tokens=2048 # Đã tăng từ 256 lên 2048
                 )
                 
                 final_answer = second_response.choices[0].message.content

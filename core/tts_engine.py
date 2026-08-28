@@ -55,8 +55,6 @@ class TTSEngine:
         # Dọn dẹp các ký tự đặc biệt AI sinh ra (như markdown) để tránh làm TTS đọc vấp
         text = text.replace("*", "").replace("#", "")
         
-        print(f"🎵 J.A.R.V.I.S đang nói: '{text}'")
-        
         try:
             sample_rate = self.voice.config.sample_rate
             

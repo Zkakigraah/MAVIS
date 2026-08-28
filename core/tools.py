@@ -10,6 +10,8 @@ from openai import OpenAI
 from memory.qdrant_db import memory_db
 import webbrowser
 import urllib.parse
+from pathlib import Path
+from core.config import OUTPUTS_DIR, WORKSPACE_DIR, is_safe_path
 
 # Tắt cảnh báo cú pháp (SyntaxWarning) gây rác màn hình của thư viện WMI
 import warnings
@@ -232,25 +234,47 @@ def analyze_screen(prompt: str = "What is on the screen?") -> str:
         return f"Failed to analyze screen due to an error: {str(e)}"
 
 def read_file(file_path: str) -> str:
-    """Đọc nội dung từ một file text hoặc code."""
+    """Đọc nội dung từ một file (Chỉ cho phép đọc bên trong Sandbox)."""
     print(f"📄 [FILE] Đang đọc file: {file_path}")
     try:
-        if not os.path.exists(file_path):
-            return f"Error: File '{file_path}' does not exist."
-        with open(file_path, 'r', encoding='utf-8') as f:
+        target_path = Path(file_path)
+        # Nếu AI đưa đường dẫn tương đối, tự động tìm trong workspace hoặc outputs
+        if not target_path.is_absolute():
+            if (OUTPUTS_DIR / target_path).exists():
+                target_path = OUTPUTS_DIR / target_path
+            else:
+                target_path = WORKSPACE_DIR / target_path
+                
+        # Khóa an toàn: Chặn đứng hành vi đọc file ngoài workspace
+        if not is_safe_path(target_path):
+            return "Security Error: Blocked attempt to read outside the workspace."
+            
+        if not target_path.exists():
+            return f"Error: File '{target_path.name}' does not exist in workspace."
+            
+        with open(target_path, 'r', encoding='utf-8') as f:
             return f.read()
     except Exception as e:
         return f"Error reading file: {str(e)}"
 
 def write_file(file_path: str, content: str) -> str:
-    """Ghi nội dung vào một file mới."""
+    """Ghi nội dung vào một file mới, tự động ép vào thư mục outputs."""
     print(f"📝 [FILE] Đang ghi file: {file_path}")
     try:
-        # Tự động tạo thư mục nếu chưa tồn tại
-        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
-        with open(file_path, 'w', encoding='utf-8') as f:
+        target_path = Path(file_path)
+        # Ép mọi file do AI tạo ra vào thư mục outputs
+        if not target_path.is_absolute():
+            target_path = OUTPUTS_DIR / target_path
+            
+        # Khóa an toàn: Ngăn AI dùng mẹo ../../ để thoát khỏi Sandbox
+        if not is_safe_path(target_path):
+            return "Security Error: Blocked attempt to write outside the workspace."
+            
+        import os
+        os.makedirs(target_path.parent, exist_ok=True)
+        with open(target_path, 'w', encoding='utf-8') as f:
             f.write(content)
-        return f"Action complete: Successfully wrote content to {file_path}"
+        return f"Action complete: Successfully wrote content to {target_path}"
     except Exception as e:
         return f"Error writing file: {str(e)}"
 
