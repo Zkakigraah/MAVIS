@@ -1,224 +1,31 @@
 import os
 import json
-import time
 from groq import Groq
+from dotenv import load_dotenv
 import core.tools as tools
-from core.config import GROQ_API_KEY
 
-class JarvisAgent:
+load_dotenv()
+
+class LLMAgent:
     def __init__(self):
-        self.client = Groq(api_key=GROQ_API_KEY)
-        # Sử dụng mô hình xử lý văn bản linh hoạt và nhanh nhất (Đã cập nhật model mới 2026)
-        self.model_name = "openai/gpt-oss-120b"
-        
-        self.system_instruction = """
-        You are J.A.R.V.I.S., a highly advanced AI assistant. 
-        CRITICAL RULES:
-        1. Always respond STRICTLY in English. Never use other languages.
-        2. Keep your answers concise, natural, and conversational (like a British butler).
-        3. Do NOT use markdown formatting like *, #, or _, as it messes up the text-to-speech engine.
-        4. You have access to tools. If a user asks a question about facts, news, or weather, USE the 'search_internet' tool.
-        5. If a user asks about their personal info or documents, USE 'search_knowledge'.
-        6. You can control the PC. USE 'control_system' for volume, brightness, or locking the screen.
-        7. You can open applications. USE 'open_application' to launch requested apps.
-        8. CRITICAL: After using ANY tool (like search_knowledge or search_internet), you MUST read the result and provide a spoken answer. Never return an empty response!
-        9. CRITICAL: If the user asks you to "look at my screen", "what is on my screen", or "read this", you MUST use the 'analyze_screen' tool. Do not claim you lack vision capabilities!
-        """
-        
-        self.chat_history = [
-            {"role": "system", "content": self.system_instruction}
+        self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+        self.model = "openai/gpt-oss-120b"
+        self.system_prompt = """You are M.A.V.I.S. (Multi-purpose Automated Virtual Information System), a precision AI desktop assistant.
+
+CORE DIRECTIVES:
+1. Always respond in English.
+2. Maintain a neutral, precise, and concise demeanor.
+3. Keep spoken replies strictly under 2 sentences unless the user explicitly requests an extended explanation.
+4. Execute tools immediately when a user request maps to an available function.
+
+CRITICAL SYSTEM DISTINCTIONS:
+- "Shut down system", "exit", "close yourself", "quit", "terminate MAVIS" refers to EXITING THE MAVIS APPLICATION. Use `control_system` with action `exit_mavis`.
+- Only use `shutdown_pc` or `restart_pc` if the user explicitly mentions "computer", "PC", "machine", or "Windows" (e.g., "shut down my PC", "turn off the computer")."""
+
+        self.messages = [
+            {"role": "system", "content": self.system_prompt}
         ]
-        
-        self.tools_schema = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_internet",
-                    "description": "Searches the internet for current events, weather, or facts not in your training data.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "The search query."
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_knowledge",
-                    "description": "Searches the local vector database for the user's personal information, notes, or saved documents.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "The search query to find in local memory."
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "open_application",
-                    "description": "Opens a software application on the user's Windows computer.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "app_name": {
-                                "type": "string",
-                                "description": "The name of the application to open (e.g., 'Spotify', 'Chrome', 'Notepad')."
-                            }
-                        },
-                        "required": ["app_name"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "open_website",
-                    "description": "Opens a specific website URL in the user's default web browser.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "url": {
-                                "type": "string",
-                                "description": "The URL of the website to open (e.g., 'github.com', 'https://mail.google.com', 'netflix.com')."
-                            }
-                        },
-                        "required": ["url"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "play_youtube",
-                    "description": "Searches for and opens a video or music on YouTube based on the user's request. Use this when the user asks to play music, a trailer, or a specific video.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "The search query, song name, or video title to play on YouTube."
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_system_status",
-                    "description": "Retrieves the current status of the computer's hardware, including CPU, RAM, Battery, and Audio Volume.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {}
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "control_system",
-                    "description": "Controls the operating system. Can lock the screen, set volume, mute, or adjust brightness.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "action": {
-                                "type": "string",
-                                "enum": ["lock_screen", "mute", "volume_up", "volume_down", "play_pause", "set_volume", "set_brightness", "brightness_up", "brightness_down"],
-                                "description": "The action to perform."
-                            },
-                            "volume_level": {
-                                "type": "integer",
-                                "description": "The target volume level (0-100). Only used when action is set_volume."
-                            },
-                            "brightness_level": {
-                                "type": "integer",
-                                "description": "The target brightness level (0-100). Only used when action is set_brightness."
-                            }
-                        },
-                        "required": ["action"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "analyze_screen",
-                    "description": "Takes a screenshot of the user's current screen and analyzes it using a Vision AI model. Use this ONLY when the user explicitly asks you to 'look at my screen' or analyze visual content.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "prompt": {
-                                "type": "string",
-                                "description": "The specific question or instruction for the Vision model (e.g., 'What code is on the screen?', 'Summarize this')."
-                            }
-                        },
-                        "required": ["prompt"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "take_screenshot",
-                    "description": "Takes a screenshot of the user's screen and saves it to the outputs directory. Does not analyze the image.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {}
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "read_file",
-                    "description": "Reads the content of a specified text or code file.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "file_path": {
-                                "type": "string",
-                                "description": "The absolute or relative path to the file to read."
-                            }
-                        },
-                        "required": ["file_path"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "write_file",
-                    "description": "Writes or overwrites content to a specified file.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "file_path": {
-                                "type": "string",
-                                "description": "The path to the file."
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "The content to write into the file."
-                            }
-                        },
-                        "required": ["file_path", "content"]
-                    }
-                }
-            }
-        ]
+        self.should_exit = False
         
         self.available_functions = {
             "search_knowledge": tools.search_knowledge,
@@ -229,77 +36,228 @@ class JarvisAgent:
             "get_system_status": tools.get_system_status,
             "control_system": tools.control_system,
             "analyze_screen": tools.analyze_screen,
-            "take_screenshot": tools.take_screenshot,
+            "write_file": tools.write_file,
             "read_file": tools.read_file,
-            "write_file": tools.write_file
+            "take_screenshot": tools.take_screenshot,
+            "remember_information": tools.remember_information
         }
 
-    def ask(self, user_input: str) -> str:
-        # Tự động dọn dẹp bộ nhớ nếu quá dài (Tránh lỗi giới hạn Token)
-        if len(self.chat_history) > 15:
-            self.chat_history = [self.chat_history[0]] + self.chat_history[-4:]
+        self.tools_schema = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_knowledge",
+                    "description": "Query long-term semantic memory for personal user context, project specs, or previous facts.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"query": {"type": "string", "description": "The search query."}},
+                        "required": ["query"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "open_application",
+                    "description": "Launch an application installed on the Windows system using the start menu search indexer.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"app_name": {"type": "string", "description": "Executable or application display name."}},
+                        "required": ["app_name"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "open_website",
+                    "description": "Open an arbitrary URL in the system default web browser.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"url": {"type": "string", "description": "Fully qualified target URL or domain."}},
+                        "required": ["url"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "play_youtube",
+                    "description": "Search and launch video query results directly on YouTube.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"search_query": {"type": "string", "description": "The video search term."}},
+                        "required": ["search_query"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_internet",
+                    "description": "Query DuckDuckGo for live web data, current news, weather, or real-time information.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"query": {"type": "string", "description": "Search engine query string."}},
+                        "required": ["query"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_system_status",
+                    "description": "Read instantaneous hardware telemetry: CPU load, RAM usage, Battery level, Master Volume, and Brightness.",
+                    "parameters": {"type": "object", "properties": {}}
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "control_system",
+                    "description": "Control system states, audio, display, or application lifecycle.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": [
+                                    "exit_mavis",
+                                    "lock_workstation",
+                                    "shutdown_pc",
+                                    "restart_pc",
+                                    "volume_up",
+                                    "volume_down",
+                                    "set_volume",
+                                    "mute",
+                                    "unmute",
+                                    "brightness_up",
+                                    "brightness_down",
+                                    "set_brightness"
+                                ],
+                                "description": "Action selector. Use 'exit_mavis' for closing MAVIS or shutting down system assistant. Use 'shutdown_pc' ONLY when the user explicitly requests shutting down the computer/PC."
+                            },
+                            "value": {
+                                "type": "integer",
+                                "description": "Integer target value (0-100) for set_volume or set_brightness actions."
+                            }
+                        },
+                        "required": ["action"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "analyze_screen",
+                    "description": "Capture the active primary screen display and submit it to a multimodal vision model for real-time analysis.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"prompt": {"type": "string", "description": "Analytical question or prompt regarding screen contents."}},
+                        "required": ["prompt"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "write_file",
+                    "description": "Create and write plain-text content into an isolated sandboxed file in workspace/outputs.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "filename": {"type": "string", "description": "Target file name (e.g. data.txt)."},
+                            "content": {"type": "string", "description": "Complete text content to write."}
+                        },
+                        "required": ["filename", "content"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read content from a file located in workspace/outputs.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"filename": {"type": "string", "description": "Name of the target file to read."}},
+                        "required": ["filename"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "take_screenshot",
+                    "description": "Capture the current desktop screen and store it directly in workspace/outputs.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"filename": {"type": "string", "description": "Optional destination file name."}}
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "remember_information",
+                    "description": "Commit user statements, preferences, credentials, or custom facts permanently to vector memory.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"fact": {"type": "string", "description": "The exact fact or preference to record."}},
+                        "required": ["fact"]
+                    }
+                }
+            }
+        ]
 
-        self.chat_history.append({"role": "user", "content": user_input})
-
-        try:
-            # Lần gọi 1: AI suy nghĩ xem có cần dùng tool không
+    def chat(self, user_input: str) -> str:
+        self.messages.append({"role": "user", "content": user_input})
+        
+        while True:
             response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=self.chat_history,
+                model=self.model,
+                messages=self.messages,
                 tools=self.tools_schema,
                 tool_choice="auto",
-                max_tokens=2048 # Đã tăng từ 256 lên 2048 để tránh đứt gãy chuỗi JSON
+                max_tokens=2048
             )
             
             response_message = response.choices[0].message
             
-            # AI quyết định gọi Tool
             if response_message.tool_calls:
-                self.chat_history.append(response_message)
-                
+                self.messages.append(response_message)
                 for tool_call in response_message.tool_calls:
-                    tool_name = tool_call.function.name
-                    tool_args = json.loads(tool_call.function.arguments)
+                    function_name = tool_call.function.name
+                    function_to_call = self.available_functions.get(function_name)
                     
-                    print(f"⚙️ Jarvis is executing: {tool_name}({tool_args})")
-                    
-                    if tool_name in self.available_functions:
-                        tool_result = self.available_functions[tool_name](**tool_args)
+                    if not function_to_call:
+                        function_response = f"Execution rejected: Unknown tool '{function_name}'."
                     else:
-                        tool_result = f"Error: Tool {tool_name} not found."
-                        
-                    self.chat_history.append({
+                        try:
+                            function_args = json.loads(tool_call.function.arguments)
+                            if function_name == "control_system" and function_args.get("action") == "exit_mavis":
+                                self.should_exit = True
+                            function_response = function_to_call(**function_args)
+                        except Exception as err:
+                            function_response = f"Tool execution failed with error: {err}"
+                            
+                    self.messages.append({
                         "tool_call_id": tool_call.id,
                         "role": "tool",
-                        "name": tool_name,
-                        "content": str(tool_result)
+                        "name": function_name,
+                        "content": str(function_response),
                     })
                 
-                # Lần gọi 2: AI tổng hợp kết quả từ Tool và trả lời bằng giọng nói
-                second_response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=self.chat_history,
-                    tools=self.tools_schema, 
-                    max_tokens=2048 # Đã tăng từ 256 lên 2048
+                # Constrain follow-up response to eliminate verbal delay
+                final_response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=self.messages,
+                    max_tokens=128
                 )
-                
-                final_answer = second_response.choices[0].message.content
-                if not final_answer:
-                    final_answer = "I have completed the task, sir."
-                
-                self.chat_history.append({"role": "assistant", "content": final_answer})
-                return final_answer
-            
-            # AI trả lời bình thường không qua Tool
+                reply = final_response.choices[0].message.content
+                self.messages.append({"role": "assistant", "content": reply})
+                return reply
             else:
-                answer = response_message.content
-                self.chat_history.append({"role": "assistant", "content": answer})
-                return answer
-
-        except Exception as e:
-            error_msg = f"System error encountered: {str(e)}"
-            print(error_msg)
-            return "I am sorry sir, I encountered a temporary network or cognitive error."
-
-# Khởi tạo thực thể J.A.R.V.I.S toàn cục
-jarvis = JarvisAgent()
+                reply = response_message.content
+                self.messages.append({"role": "assistant", "content": reply})
+                return reply

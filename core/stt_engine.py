@@ -19,7 +19,7 @@ class STTEngine:
             duration: Thời gian ghi âm (giây)
             sample_rate: Tần số lấy mẫu (16000Hz là tối ưu cho Whisper)
         """
-        print(f"\n🔴 J.A.R.V.I.S đang nghe ({duration}s)... Hãy nói gì đó!")
+        print(f"\n🔴 M.A.V.I.S đang nghe ({duration}s)... Hãy nói gì đó!")
         
         # Bắt đầu ghi âm (mono channel)
         audio_data = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')

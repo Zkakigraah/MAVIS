@@ -1,9 +1,9 @@
-⚛️ J.A.R.V.I.S
+⚛️ M.A.V.I.S
 ==============
 
-**Just A Rather Very Intelligent System**
+Inspired by J.A.R.V.I.S - "**Just A Rather Very Intelligent System**" - Iron Man
 
-J.A.R.V.I.S là một Trợ lý AI cá nhân toàn diện được xây dựng bằng Python, lấy cảm hứng từ vũ trụ Iron Man. Hệ thống hoạt động độc lập trên máy tính Windows, sở hữu giao diện Quả cầu Hologram 3D trong suốt 100%, cùng khả năng Nghe, Nói, Nhìn và can thiệp sâu vào hệ điều hành.
+M.A.V.I.S (Multi-purpose Automated Virtual Information System) là một Trợ lý AI cá nhân toàn diện được xây dựng bằng Python, lấy cảm hứng từ vũ trụ Iron Man. Hệ thống hoạt động độc lập trên máy tính Windows, sở hữu giao diện Quả cầu Hologram 3D trong suốt 100%, cùng khả năng Nghe, Nói, Nhìn và can thiệp sâu vào hệ điều hành.
 
 🌟 Tính năng Cốt lõi (Current Version)
 --------------------------------------

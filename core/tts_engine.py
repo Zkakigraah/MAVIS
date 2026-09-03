@@ -64,11 +64,9 @@ class TTSEngine:
             
             has_audio = False
             
-            # Đã loại bỏ length_scale do thư viện API hiện hành không hỗ trợ truyền trực tiếp
             for chunk in self.voice.synthesize(text):
                 has_audio = True
                 
-                # Trích xuất bytes từ đối tượng chunk
                 # Trích xuất bytes từ đối tượng chunk (tương thích đa phiên bản)
                 if isinstance(chunk, bytes):
                     chunk_bytes = chunk
@@ -81,6 +79,10 @@ class TTSEngine:
                 audio_data = np.frombuffer(chunk_bytes, dtype=np.int16)
                 stream.write(audio_data)
                 
+            # Allow the audio driver hardware buffer to drain completely before stopping
+            import time
+            time.sleep(0.4)
+
             stream.stop()
             stream.close()
             

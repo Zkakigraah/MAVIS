@@ -1,80 +1,7 @@
-import sys
-import time
 import math
-import random
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QWidget)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRectF
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtCore import Qt, QTimer, QRectF
 from PyQt6.QtGui import QColor, QPainter, QPen
-
-# Import AI Core
-from core.stt_engine import STTEngine
-from core.tts_engine import TTSEngine
-from core.llm_agent import jarvis
-
-class JarvisWorker(QThread):
-    """Luồng xử lý ngầm (Background Thread) cho J.A.R.V.I.S"""
-    status_signal = pyqtSignal(str)
-    log_signal = pyqtSignal(str)
-
-    def run(self):
-        self.status_signal.emit("BOOTING")
-        self.log_signal.emit("🤖 Khởi động các hệ thống quang học...")
-        
-        stt = STTEngine(model_size="base")
-        tts = TTSEngine()
-        
-        self.log_signal.emit("✅ Hệ thống đã sẵn sàng.")
-        tts.speak("System is online. Awaiting your command, sir.")
-
-        is_active = False
-
-        while True:
-            try:
-                if not is_active:
-                    self.status_signal.emit("STANDBY")
-                    standby_audio = stt.record_audio(duration=3)
-                    standby_text = stt.transcribe(standby_audio).lower()
-                    
-                    if "wake up" in standby_text:
-                        is_active = True
-                        self.status_signal.emit("WAKE")
-                        self.log_signal.emit("🔔 [WAKE] Hệ thống đã được đánh thức!")
-                        tts.speak("Yes, sir? I am listening.")
-                    else:
-                        time.sleep(0.5)
-                        
-                else:
-                    self.status_signal.emit("LISTENING...")
-                    command_audio = stt.record_audio(duration=6)
-                    command_text = stt.transcribe(command_audio)
-                    
-                    if not command_text or len(command_text) < 3:
-                        continue
-                        
-                    self.log_signal.emit(f"🗣️ You: '{command_text}'")
-                    
-                    if "standby" in command_text.lower() or "stand by" in command_text.lower():
-                        is_active = False
-                        self.status_signal.emit("STANDBY")
-                        tts.speak("Standing by, sir.")
-                        continue
-                    
-                    if "goodbye" in command_text.lower() or "shut down" in command_text.lower():
-                        tts.speak("Goodbye sir. Shutting down systems.")
-                        time.sleep(1)
-                        self.status_signal.emit("SHUTDOWN")
-                        break
-                        
-                    self.status_signal.emit("THINKING...")
-                    response = jarvis.ask(command_text)
-                    
-                    self.log_signal.emit(f"🎵 Jarvis: {response}")
-                    self.status_signal.emit("SPEAKING...")
-                    tts.speak(response)
-                    
-            except Exception as e:
-                self.log_signal.emit(f"❌ Lỗi: {str(e)}")
-                time.sleep(1)
 
 class HologramSphereWidget(QWidget):
     """Khung vẽ giả lập 3D (Pseudo-3D) Quả cầu Hologram lơ lửng"""
@@ -103,17 +30,17 @@ class HologramSphereWidget(QWidget):
             self.target_radius = 45.0
             self.rotation_speed = 0.8
             self.pulse_amplitude = 1.0
-        elif status == "LISTENING...":
+        elif status == "LISTENING":
             self.color = QColor(0, 255, 128, 220) # Xanh lá đón lệnh
             self.target_radius = 70.0
             self.rotation_speed = 2.5
             self.pulse_amplitude = 4.0
-        elif status == "THINKING...":
-            self.color = QColor(255, 170, 0, 255) # Cam/Vàng rực rỡ (như ảnh)
+        elif status == "THINKING":
+            self.color = QColor(255, 170, 0, 255) # Cam/Vàng rực rỡ (Lõi Reactor)
             self.target_radius = 60.0
             self.rotation_speed = 8.0 # Xoay cực mạnh khi não bộ đang vắt kiệt
             self.pulse_amplitude = 2.0
-        elif status == "SPEAKING...":
+        elif status == "SPEAKING":
             self.color = QColor(0, 229, 255, 255) # Lục lam
             self.target_radius = 80.0
             self.rotation_speed = 4.0
@@ -125,12 +52,12 @@ class HologramSphereWidget(QWidget):
             self.pulse_amplitude = 0.0
             
     def animate(self):
-        # Lerp radius
+        # Lerp radius (Chuyển đổi kích thước mượt mà)
         self.current_radius += (self.target_radius - self.current_radius) * 0.1
         self.phase += self.rotation_speed
         if self.phase > 360000:
             self.phase = 0
-        self.update() # Vẽ lại
+        self.update() # Vẽ lại frame mới
         
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -174,13 +101,12 @@ class HologramSphereWidget(QWidget):
                 
             painter.setPen(pen)
             
-            # 2A. Xoay 2D (Quay quanh trục Z)
+            # Xoay 2D (Quay quanh trục Z)
             direction = 1 if i % 2 == 0 else -1
             painter.rotate(self.phase * direction * (0.3 + i * 0.15))
             
-            # 2B. Giả lập 3D (Bóp méo trục Y bằng hàm Sine để tạo cảm giác bị nghiêng)
+            # Giả lập 3D (Bóp méo trục Y bằng hàm Sine để tạo cảm giác bị nghiêng)
             tilt = math.sin((self.phase * 0.015) + i) * 0.7 + 0.3
-            # Tránh lỗi chia cho 0 hoặc biến mất hoàn toàn
             tilt = max(0.05, min(1.0, math.fabs(tilt))) 
             
             painter.scale(1.0, tilt)
@@ -188,18 +114,10 @@ class HologramSphereWidget(QWidget):
             painter.drawEllipse(QRectF(-ring_r, -ring_r, ring_r * 2, ring_r * 2))
             painter.restore()
 
-
-class JarvisHUD(QMainWindow):
+class HUDOverlay(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
-        
-        self.worker = JarvisWorker()
-        self.worker.status_signal.connect(self.update_status)
-        
-        self.worker.log_signal.connect(lambda msg: print(msg)) 
-        
-        self.worker.start()
 
     def initUI(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
@@ -220,13 +138,11 @@ class JarvisHUD(QMainWindow):
         self.central_widget.setLayout(main_layout)
         self.setCentralWidget(self.central_widget)
 
-    def update_status(self, status):
-        if status == "SHUTDOWN":
-            QApplication.quit()
-            return
-            
+    def set_state(self, status):
+        """Hàm được gọi từ main.py để thay đổi trạng thái của Hologram"""
         self.hologram.update_state(status)
 
+    # Các hàm hỗ trợ kéo thả quả cầu trên màn hình bằng chuột
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.old_pos = event.globalPosition().toPoint()

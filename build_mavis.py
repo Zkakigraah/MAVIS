@@ -9,7 +9,7 @@ def main():
     print("="*60)
 
     BASE_DIR = Path(__file__).resolve().parent
-    DIST_DIR = BASE_DIR / "dist" / "JARVIS"
+    DIST_DIR = BASE_DIR / "dist" / "MAVIS"
     INTERNAL_DIR = DIST_DIR / "_internal"
 
     print("\n📦 Bước 1: Biên dịch mã nguồn (PyInstaller)...")
@@ -23,7 +23,7 @@ def main():
     build_cmd = [
         "uv", "run", "pyinstaller",
         "--noconsole",
-        "--name", "JARVIS",
+        "--name", "MAVIS",
         "--collect-all", "fastembed",
         "--collect-all", "faster_whisper"
     ]
