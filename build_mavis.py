@@ -70,7 +70,7 @@ def main():
     # Tuyệt đối không copy file .env của máy host. Tạo file .env mẫu trắng.
     env_example_path = DIST_DIR / ".env"
     with open(env_example_path, "w", encoding="utf-8") as f:
-        f.write("# === CAU HINH J.A.R.V.I.S ===\n")
+        f.write("# === CAU HINH M.A.V.I.S ===\n")
         f.write("GROQ_API_KEY=your_groq_api_key_here\n")
         f.write("# GEMINI_API_KEY=your_gemini_api_key_here\n")
     print(" ✅ Đã tạo file .env trống (Đảm bảo an toàn API Key của bạn).")
@@ -79,9 +79,9 @@ def main():
     readme_path = DIST_DIR / "HUONG_DAN_CAI_DAT.txt"
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write("==================================================\n")
-        f.write("    HUONG DAN CAI DAT J.A.R.V.I.S (AI ASSISTANT)  \n")
+        f.write("    HUONG DAN CAI DAT M.A.V.I.S (AI ASSISTANT)  \n")
         f.write("==================================================\n\n")
-        f.write("Chao mung ban den voi he thong J.A.R.V.I.S!\n\n")
+        f.write("Chao mung ban den voi he thong M.A.V.I.S!\n\n")
         f.write("De ung dung co the hoat dong va suy nghi, ban can cung cap cho no mot 'Bo nao' (API Key).\n")
         f.write("Hay lam theo 3 buoc cuc ky don gian sau:\n\n")
         f.write("Buoc 1: Truc cap trang web https://console.groq.com/keys va tao mot tai khoan mien phi.\n")
@@ -89,12 +89,12 @@ def main():
         f.write("Buoc 3: Mo file '.env' o ngay trong thu muc nay bang Notepad.\n")
         f.write("        Xoa dong chu 'your_groq_api_key_here' va dan API Key cua ban vao do.\n")
         f.write("        Luu file lai (Ctrl + S).\n\n")
-        f.write("XONG! Bay gio ban chi can click dup vao file JARVIS.exe de danh thuc tro ly cua rieng ban.\n")
+        f.write("XONG! Bay gio ban chi can click dup vao file M.A.V.I.S.exe de danh thuc tro ly cua rieng ban.\n")
     print(" ✅ Đã tạo file HUONG_DAN_CAI_DAT.txt cho người dùng mới.")
 
     print("\n🧹 Bước 4: Dọn dẹp không gian làm việc (Xóa rác)...")
     build_temp_dir = BASE_DIR / "build"
-    spec_file = BASE_DIR / "JARVIS.spec"
+    spec_file = BASE_DIR / "M.A.V.I.S.spec"
     
     try:
         if build_temp_dir.exists():
@@ -102,7 +102,7 @@ def main():
             print(" ✅ Đã xóa thư mục nháp 'build'.")
         if spec_file.exists():
             os.remove(spec_file)
-            print(" ✅ Đã xóa file cấu hình 'JARVIS.spec'.")
+            print(" ✅ Đã xóa file cấu hình 'M.A.V.I.S.spec'.")
     except Exception as e:
         print(f" ⚠️ Không thể dọn dẹp hoàn toàn: {e}")
 
