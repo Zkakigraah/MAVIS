@@ -20,7 +20,7 @@ M.A.V.I.S (Multi-purpose Automated Virtual Information System) là một Trợ l
 
     -   Tự động mở ứng dụng, tìm kiếm Google, mở video YouTube.
 
-    -   Điều khiển Windows: Khóa màn hình, tăng giảm âm lượng, độ sáng.
+    -   Điều khiển Windows: Khóa màn hình, tăng giảm âm lượng, độ sáng, shutdown máy tính (cẩn trọng khi sử dụng lệnh).
 
     -   Kiểm tra tình trạng phần cứng (CPU, RAM, Pin).
 
@@ -43,11 +43,12 @@ JARVIS_PROJECT/
 │   ├── qdrant_db.py      # Vector Database lưu trữ ký ức
 │   └── rag_builder.py    # Trình nạp văn bản từ TXT vào ký ức
 ├── ui/
+│   ├── console_window.py # Giao diện lưu trữ chat log khi app đang mở
 │   └── hud_overlay.py    # Giao diện Hologram 3D PyQt6
 ├── workspace/            # VÙNG AN TOÀN (Sandbox)
 │   ├── personal_docs/    # Bỏ file TXT của bạn vào đây để nạp trí nhớ
-│   └── outputs/          # Nơi J.A.R.V.I.S xuất file code, text, ảnh chụp
-├── build_jarvis.py       # Trình đóng gói ứng dụng (Release Pipeline)
+│   └── outputs/          # Nơi M.A.V.I.S xuất file code, text, ảnh chụp
+├── build_mavis.py        # Trình đóng gói ứng dụng (Release Pipeline)
 ├── make_icon.py          # Công cụ ép Icon chất lượng cao
 ├── main.py               # Điểm khởi động hệ thống
 └── README.md             # Tài liệu bạn đang đọc
